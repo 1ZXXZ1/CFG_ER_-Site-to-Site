@@ -1,0 +1,99 @@
+!
+no service password-encryption
+!
+hostname ER2
+!
+!
+hw mgmt ip 192.168.255.1/24
+!
+bgp extended-asn-cap
+!
+ip vrf management
+!
+crypto-ipsec ike enable
+!
+class-map default
+!
+security default
+!
+security none vrf management
+!
+crypto-ipsec profile S2S ike-v2
+ mode tunnel
+ nat-traversal
+ ike-phase1
+  proposal aes256-sha256-modp2048
+  auth pre-shared-key Site2SiteKey
+ ike-phase2
+  protocol esp
+  proposal aes256-sha256
+  local-ts 192.168.200.0/24
+  remote-ts 192.168.100.0/24
+!
+crypto-map CMAP 1
+ match peer 192.168.104.25
+ set crypto-ipsec profile S2S
+!
+filter-map ipv4 FM-VPN 10
+ match any 192.168.200.0/24 192.168.100.0/24
+ set crypto-map CMAP peer 192.168.104.25
+!
+filter-map ipv4 FM-VPN 20
+ match udp host 192.168.104.25 eq 4500 host 192.168.104.26 eq 4500
+ set crypto-map CMAP peer 192.168.104.25
+!
+filter-map ipv4 FM-VPN 30
+ match any any any
+ set accept
+!
+filter-map ipv4 NO-NAT 5
+ match any 192.168.200.0/24 192.168.100.0/24
+ set accept
+!
+mpls propagate-ttl
+mpls label mode per-prefix
+mpls exp stack-size all
+!
+ip domain-lookup
+!
+!
+ip pim register-rp-reachability
+!
+ip route 0.0.0.0/0 192.168.104.1
+ip route 192.168.100.0/24 192.168.104.25
+!
+line con 0
+line vty 0 39
+!
+port ge0
+ mtu 9728
+ service-instance WAN
+  encapsulation untagged
+!
+port ge1
+ mtu 9728
+ service-instance LAN
+  encapsulation untagged
+!
+interface WAN
+ ip mtu 1500
+ connect port ge0 service-instance WAN
+ ip address 192.168.104.26/24
+ set filter-map in FM-VPN 10
+!
+interface LAN
+ ip mtu 1500
+ connect port ge1 service-instance LAN
+ ip address 192.168.200.1/24
+ set filter-map in FM-VPN 10
+!
+arp request-interval 1
+arp request-number 3
+arp expiration-period 5
+arp solicitation-rate 2
+arp ip-collision-time 8
+arp incomplete-time 60
+!
+end
+
+
